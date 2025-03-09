@@ -30,4 +30,9 @@ export class ChatController {
   async funStartConnectionReq(@Body() body) {
     return await this.service.startConnectionReq(body);
   }
+
+  @Get('recentChats')
+  async funRecentChats() {
+    return await this.service.recentChats();
+  }
 }

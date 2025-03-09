@@ -15,10 +15,16 @@ export class ChatService {
 
   async connect() {
     if (wa_client.isConnected) {
-      return { message: 'WhatsApp number is already connected !' };
+      return {
+        isConnected: true,
+        message: 'WhatsApp number is already connected !',
+      };
     } else {
       this.waService.connectClient();
-      return { message: 'WhatsApp number is now connected !' };
+      return {
+        isConnected: true,
+        message: 'WhatsApp number is now connected !',
+      };
     }
   }
 
@@ -27,7 +33,10 @@ export class ChatService {
       return { message: 'WhatsApp number is already disconnected !' };
     } else {
       this.waService.disconnectClient();
-      return { message: 'WhatsApp number is disconnected successfully !' };
+      return {
+        isDisconnected: true,
+        message: 'WhatsApp number is disconnected successfully !',
+      };
     }
   }
 
@@ -60,5 +69,9 @@ export class ChatService {
 
   async startConnectionReq(reqData) {
     return { codeSent: true };
+  }
+
+  async recentChats() {
+    return await this.waService.recentChats();
   }
 }

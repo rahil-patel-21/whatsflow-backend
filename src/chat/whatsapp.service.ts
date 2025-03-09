@@ -1,6 +1,6 @@
 // Imports
-import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Env } from 'src/constant/env';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Client, Message, MessageAck, LocalAuth } from 'whatsapp-web.js';
 
 let client: Client;
@@ -22,6 +22,8 @@ const puppeteerConfig: any =
           '--disable-renderer-backgrounding',
         ],
       };
+
+const recent_chats = {};
 
 @Injectable()
 export class WhatsAppService implements OnModuleInit {
@@ -79,6 +81,7 @@ export class WhatsAppService implements OnModuleInit {
         console.log('Page error: ' + err.toString());
       });
 
+      await this.preFillRecentChats();
       if (!wa_client.isConnected) {
         wa_client.isConnected = true;
         for (
@@ -94,12 +97,29 @@ export class WhatsAppService implements OnModuleInit {
       }
     });
 
-    client.on('message', async (msg: Message) => {
+    client.on('message', async (msg: any) => {
       if (msg?.type != 'chat') return {};
 
+      const contact = await msg.getContact();
+
       try {
-        const creationData = { type: 1, response: msg };
-        console.log('creationData', creationData);
+        // const creationData = { type: 1, response: msg };
+        const recentChat = {
+          content: msg?.body ?? '',
+          deviceType: msg?.deviceType ?? '',
+          from: (msg?.from ?? '')?.replace('@c.us', ''),
+          id: msg?.id?.id ?? '',
+          name:
+            contact?.name ??
+            contact?.shortName ??
+            contact?.pushname ??
+            msg?._data?.notifyName ??
+            '',
+          source: (msg?.from ?? '')?.replace('@c.us', ''),
+          timestamp: msg?.timestamp,
+          type: msg?.type ?? '',
+        };
+        recent_chats[recentChat.source] = recentChat;
       } catch (error) {}
     });
 
@@ -181,12 +201,70 @@ export class WhatsAppService implements OnModuleInit {
     const text = body?.text ?? '';
 
     try {
-      const creationData = { type: 2, response: { number, text } };
-      console.log('creationData', creationData);
+      // const creationData = { type: 2, response: { number, text } };
     } catch (error) {}
 
-    client.sendMessage(number, text);
+    const msg: any = await client.sendMessage(number, text);
+
+    const contact = await msg.getContact();
+    const recentChat = {
+      content: msg?.body ?? '',
+      deviceType: msg?.deviceType ?? '',
+      from: (msg?.from ?? '')?.replace('@c.us', ''),
+      id: msg?.id?.id ?? '',
+      name:
+        contact?.name ??
+        contact?.shortName ??
+        contact?.pushname ??
+        msg?._data?.notifyName ??
+        '',
+      source: (msg?.to ?? '')?.replace('@c.us', ''),
+      timestamp: msg?.timestamp,
+      type: msg?.type ?? '',
+    };
+    recent_chats[recentChat.source] = recentChat;
 
     return {};
+  }
+
+  private async preFillRecentChats() {
+    const chats = await client.getChats();
+    for (let index = 0; index < chats.length; index++) {
+      try {
+        const chatData = chats[index];
+        if (chatData.archived == true) continue;
+
+        const lastMsg: any = chatData.lastMessage ?? {};
+        const last_msg_type = lastMsg.type ?? '';
+        if (last_msg_type != 'chat') continue;
+        const last_msg_content = lastMsg.body ?? '';
+
+        const from = (lastMsg?.from ?? '').replace('@c.us', '');
+        const to = (lastMsg?.to ?? '').replace('@c.us', '');
+        const source = from.includes(Env.wa.number) ? to : from;
+
+        const recentChat = {
+          from,
+          content: last_msg_content,
+          deviceType: lastMsg?.deviceType ?? '',
+          name: chatData.name ?? '',
+          source,
+          timestamp: chatData.timestamp,
+          to,
+        };
+        recent_chats[recentChat.source] = recentChat;
+      } catch (error) {}
+    }
+  }
+
+  async recentChats() {
+    const finalizedList = [];
+
+    for (const key in recent_chats) {
+      const value = recent_chats[key];
+      finalizedList.push(value);
+    }
+
+    return finalizedList;
   }
 }
