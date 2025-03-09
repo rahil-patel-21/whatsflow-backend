@@ -213,9 +213,9 @@ export class WhatsAppService implements OnModuleInit {
       from: (msg?.from ?? '')?.replace('@c.us', ''),
       id: msg?.id?.id ?? '',
       name:
+        contact?.pushname ??
         contact?.name ??
         contact?.shortName ??
-        contact?.pushname ??
         msg?._data?.notifyName ??
         '',
       source: (msg?.to ?? '')?.replace('@c.us', ''),
