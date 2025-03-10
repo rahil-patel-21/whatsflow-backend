@@ -1,6 +1,7 @@
 // Imports
 import { Env } from 'src/constant/env';
 import { Injectable, OnModuleInit } from '@nestjs/common';
+import { firestore_db } from 'src/thirdParty/google/firebase.service';
 import { Client, Message, MessageAck, LocalAuth } from 'whatsapp-web.js';
 
 let client: Client;
@@ -98,9 +99,13 @@ export class WhatsAppService implements OnModuleInit {
     });
 
     client.on('message', async (msg: any) => {
+      this.refreshRecentChat();
+
       if (msg?.type != 'chat') return {};
 
       const contact = await msg.getContact();
+      const contactId = contact.id?._serialized ?? '';
+      const profilePic = await client.getProfilePicUrl(contactId);
 
       try {
         // const creationData = { type: 1, response: msg };
@@ -115,8 +120,9 @@ export class WhatsAppService implements OnModuleInit {
             contact?.pushname ??
             msg?._data?.notifyName ??
             '',
+          profilePic,
           source: (msg?.from ?? '')?.replace('@c.us', ''),
-          timestamp: msg?.timestamp,
+          timestamp: msg?.timestamp * 1000,
           type: msg?.type ?? '',
         };
         recent_chats[recentChat.source] = recentChat;
@@ -219,10 +225,12 @@ export class WhatsAppService implements OnModuleInit {
         msg?._data?.notifyName ??
         '',
       source: (msg?.to ?? '')?.replace('@c.us', ''),
-      timestamp: msg?.timestamp,
+      timestamp: msg?.timestamp * 1000,
       type: msg?.type ?? '',
     };
     recent_chats[recentChat.source] = recentChat;
+
+    this.refreshRecentChat();
 
     return {};
   }
@@ -243,13 +251,18 @@ export class WhatsAppService implements OnModuleInit {
         const to = (lastMsg?.to ?? '').replace('@c.us', '');
         const source = from.includes(Env.wa.number) ? to : from;
 
+        const contact = await lastMsg.getContact();
+        const contactId = contact.id?._serialized ?? '';
+        const profilePic = await client.getProfilePicUrl(contactId);
+
         const recentChat = {
           from,
           content: last_msg_content,
           deviceType: lastMsg?.deviceType ?? '',
           name: chatData.name ?? '',
           source,
-          timestamp: chatData.timestamp,
+          profilePic,
+          timestamp: chatData.timestamp * 1000,
           to,
         };
         recent_chats[recentChat.source] = recentChat;
@@ -265,6 +278,42 @@ export class WhatsAppService implements OnModuleInit {
       finalizedList.push(value);
     }
 
+    finalizedList.sort((b, a) => a.timestamp - b.timestamp);
+
     return finalizedList;
+  }
+
+  private async refreshRecentChat() {
+    const firebase_ref = await firestore_db
+      .collection('Recent-Chats')
+      .doc('Default');
+    firebase_ref.update({ last_refreshed_at: new Date().getTime() });
+  }
+
+  async getChat(chatId) {
+    if (!chatId) return [];
+
+    const chat = await client.getChatById(chatId + '@c.us');
+    const messages = await chat.fetchMessages({
+      limit: 100,
+    });
+
+    const finalizedMsgs = [];
+    for (let index = 0; index < messages.length; index++) {
+      const msg = messages[index];
+
+      finalizedMsgs.push({
+        content: msg.body ?? '',
+        deviceType: msg.deviceType ?? '',
+        fromMe: msg.fromMe ?? false,
+        id: msg.id.id ?? '',
+        timestamp: msg.timestamp,
+        type: msg.type,
+      });
+    }
+
+    finalizedMsgs.sort((a, b) => a.timestamp - b.timestamp);
+
+    return finalizedMsgs;
   }
 }

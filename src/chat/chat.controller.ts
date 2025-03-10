@@ -1,6 +1,6 @@
 // Imports
 import { ChatService } from './chat.service';
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 
 @Controller('chat')
 export class ChatController {
@@ -34,5 +34,10 @@ export class ChatController {
   @Get('recentChats')
   async funRecentChats() {
     return await this.service.recentChats();
+  }
+
+  @Get('getChat')
+  async funGetChat(@Query() query) {
+    return await this.service.getChat(query);
   }
 }

@@ -74,4 +74,8 @@ export class ChatService {
   async recentChats() {
     return await this.waService.recentChats();
   }
+
+  async getChat(reqData) {
+    return await this.waService.getChat(reqData.id);
+  }
 }

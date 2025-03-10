@@ -5,6 +5,8 @@
 /session_data
 .wwebjs_cache/
 
+secrets/
+
 # Logs
 logs
 *.log
