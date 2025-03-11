@@ -48,12 +48,13 @@ export class ChatService {
       };
     }
 
-    const number = reqData.number;
+    let number = reqData.number;
     if (!number) return { message: 'Parameter number is missing' };
     if (typeof number != 'string')
       return { message: 'Parameter number is having invalid value' };
-    if (number.length != 10)
+    if (number.length != 10 && number.length != 12)
       return { message: 'Parameter number is having invalid value' };
+    number = number.slice(-10);
     if (!Env.wa.whitelisted_numbers.includes(number))
       return { message: 'Number is not whitelisted' };
     const text = reqData.text;

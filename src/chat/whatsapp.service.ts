@@ -197,6 +197,9 @@ export class WhatsAppService implements OnModuleInit {
 
   async sendMsg(body) {
     let number = body?.number ?? '';
+    if (number.length == 12) {
+      number = number.slice(-10);
+    }
 
     const isRegistered = await this.isRegistered({ number });
     if (isRegistered?.isRegistered != true) return isRegistered;
@@ -212,18 +215,19 @@ export class WhatsAppService implements OnModuleInit {
 
     const msg: any = await client.sendMessage(number, text);
 
-    const contact = await msg.getContact();
+    const contact = await client.getContactById(msg?.to);
     const recentChat = {
       content: msg?.body ?? '',
       deviceType: msg?.deviceType ?? '',
       from: (msg?.from ?? '')?.replace('@c.us', ''),
       id: msg?.id?.id ?? '',
       name:
-        contact?.pushname ??
         contact?.name ??
+        contact?.pushname ??
         contact?.shortName ??
         msg?._data?.notifyName ??
         '',
+      profilePic: await client.getProfilePicUrl(msg?.to),
       source: (msg?.to ?? '')?.replace('@c.us', ''),
       timestamp: msg?.timestamp * 1000,
       type: msg?.type ?? '',
