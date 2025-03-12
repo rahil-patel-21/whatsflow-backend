@@ -99,8 +99,6 @@ export class WhatsAppService implements OnModuleInit {
     });
 
     client.on('message', async (msg: any) => {
-      this.refreshRecentChat();
-
       if (msg?.type != 'chat') return {};
 
       const contact = await msg.getContact();
@@ -125,6 +123,12 @@ export class WhatsAppService implements OnModuleInit {
           timestamp: msg?.timestamp * 1000,
           type: msg?.type ?? '',
         };
+
+        this.refreshRecentChat();
+        this.refreshMainChat(recentChat.source).catch((err) => {
+          console.log({ err });
+        });
+
         recent_chats[recentChat.source] = recentChat;
       } catch (error) {}
     });
@@ -214,6 +218,9 @@ export class WhatsAppService implements OnModuleInit {
     } catch (error) {}
 
     const msg: any = await client.sendMessage(number, text);
+    this.refreshMainChat(number.replace('@c.us', '')).catch((err) => {
+      console.log(err);
+    });
 
     const contact = await client.getContactById(msg?.to);
     const recentChat = {
@@ -292,6 +299,17 @@ export class WhatsAppService implements OnModuleInit {
       .collection('Recent-Chats')
       .doc('Default');
     firebase_ref.update({ last_refreshed_at: new Date().getTime() });
+  }
+
+  private async refreshMainChat(source) {
+    const firebase_ref = await firestore_db
+      .collection('Main-Chats')
+      .doc(source);
+    try {
+      firebase_ref.update({ last_refreshed_at: new Date().getTime() });
+    } catch (error) {
+      firebase_ref.create({ last_refreshed_at: new Date().getTime() });
+    }
   }
 
   async getChat(chatId) {
