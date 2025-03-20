@@ -2,7 +2,13 @@
 import { Env } from 'src/constant/env';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { firestore_db } from 'src/thirdParty/google/firebase.service';
-import { Client, Message, MessageAck, LocalAuth } from 'whatsapp-web.js';
+import {
+  Client,
+  Message,
+  MessageAck,
+  LocalAuth,
+  MessageMedia,
+} from 'whatsapp-web.js';
 
 let client: Client;
 
@@ -25,6 +31,7 @@ const puppeteerConfig: any =
       };
 
 const recent_chats = {};
+const media_data = {};
 
 @Injectable()
 export class WhatsAppService implements OnModuleInit {
@@ -90,16 +97,23 @@ export class WhatsAppService implements OnModuleInit {
           index < Env.wa.whitelisted_numbers.length;
           index++
         ) {
-          this.sendMsg({
-            number: Env.wa.whitelisted_numbers[index],
-            text: 'Hey there, WA is connected successfully !',
-          });
+          // this.sendMsg({
+          //   number: Env.wa.whitelisted_numbers[index],
+          //   text: 'Hey there, WA is connected successfully !',
+          // });
         }
       }
     });
 
     client.on('message', async (msg: any) => {
-      if (msg?.type != 'chat') return {};
+      if (msg?.type != 'chat' && msg?.type != 'image') return {};
+
+      if (msg.type == 'image') {
+        const media = await msg.downloadMedia();
+        const base64Data = media.data ?? '';
+        const mediaKey = msg.mediaKey;
+        media_data[mediaKey] = base64Data;
+      }
 
       const contact = await msg.getContact();
       const contactId = contact.id?._serialized ?? '';
@@ -108,7 +122,7 @@ export class WhatsAppService implements OnModuleInit {
       try {
         // const creationData = { type: 1, response: msg };
         const recentChat = {
-          content: msg?.body ?? '',
+          content: msg.type == 'image' ? 'Image Attachment' : (msg?.body ?? ''),
           deviceType: msg?.deviceType ?? '',
           from: (msg?.from ?? '')?.replace('@c.us', ''),
           id: msg?.id?.id ?? '',
@@ -246,6 +260,24 @@ export class WhatsAppService implements OnModuleInit {
     return {};
   }
 
+  async sendMedia(chatId: string, mediaPath: string, caption: string = '') {
+    let number = chatId;
+    if (number.length == 12) {
+      number = number.slice(-10);
+    }
+
+    const isRegistered = await this.isRegistered({ number });
+    if (isRegistered?.isRegistered != true) return isRegistered;
+
+    if (number.length == 10) {
+      number = `91${number}@c.us`;
+    }
+
+    const media = MessageMedia.fromFilePath(mediaPath);
+    const response = await client.sendMessage(number, media, { caption });
+    return { response };
+  }
+
   private async preFillRecentChats() {
     const chats = await client.getChats();
     for (let index = 0; index < chats.length; index++) {
@@ -255,7 +287,7 @@ export class WhatsAppService implements OnModuleInit {
 
         const lastMsg: any = chatData.lastMessage ?? {};
         const last_msg_type = lastMsg.type ?? '';
-        if (last_msg_type != 'chat') continue;
+        if (last_msg_type != 'chat' && last_msg_type != 'image') continue;
         const last_msg_content = lastMsg.body ?? '';
 
         const from = (lastMsg?.from ?? '').replace('@c.us', '');
@@ -268,7 +300,8 @@ export class WhatsAppService implements OnModuleInit {
 
         const recentChat = {
           from,
-          content: last_msg_content,
+          content:
+            last_msg_type == 'image' ? 'Image Attachment' : last_msg_content,
           deviceType: lastMsg?.deviceType ?? '',
           name: chatData.name ?? '',
           source,
@@ -324,8 +357,22 @@ export class WhatsAppService implements OnModuleInit {
     for (let index = 0; index < messages.length; index++) {
       const msg = messages[index];
 
+      let base64ImageContent = undefined;
+      if (msg.type == 'image') {
+        const mediaKey = msg.mediaKey;
+        if (!media_data[mediaKey]) {
+          const media = await msg.downloadMedia();
+          const base64Data = media.data ?? '';
+          const mediaKey = msg.mediaKey;
+          media_data[mediaKey] = base64Data;
+          base64ImageContent = `data:image/png;base64,${base64Data}`;
+        } else {
+          base64ImageContent = `data:image/png;base64,${media_data[mediaKey]}`;
+        }
+      }
+
       finalizedMsgs.push({
-        content: msg.body ?? '',
+        content: base64ImageContent ?? (msg.body ?? '').replace(/  /g, ' \n\n'),
         deviceType: msg.deviceType ?? '',
         fromMe: msg.fromMe ?? false,
         id: msg.id.id ?? '',

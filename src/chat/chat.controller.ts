@@ -26,6 +26,11 @@ export class ChatController {
     return await this.service.sendMsg(body);
   }
 
+  @Post('sendMedia')
+  async funSendMedia(@Body() body) {
+    return await this.service.sendMedia(body);
+  }
+
   @Post('startConnectionReq')
   async funStartConnectionReq(@Body() body) {
     return await this.service.startConnectionReq(body);

@@ -1,7 +1,7 @@
 // Imports
+import { Env } from 'src/constant/env';
 import { Injectable } from '@nestjs/common';
 import { wa_client, WhatsAppService } from './whatsapp.service';
-import { Env } from 'src/constant/env';
 
 @Injectable()
 export class ChatService {
@@ -66,6 +66,31 @@ export class ChatService {
 
     this.waService.sendMsg({ number, text });
     return { message: 'Message sent successfully !' };
+  }
+
+  async sendMedia(reqData) {
+    if (!wa_client.isConnected) {
+      return {
+        message:
+          'You can not send msg as the number is disconnected, Please connect and try again',
+      };
+    }
+
+    let number = reqData.number;
+    if (!number) return { message: 'Parameter number is missing' };
+    if (typeof number != 'string')
+      return { message: 'Parameter number is having invalid value' };
+    if (number.length != 10 && number.length != 12)
+      return { message: 'Parameter number is having invalid value' };
+    number = number.slice(-10);
+    if (!Env.wa.whitelisted_numbers.includes(number))
+      return { message: 'Number is not whitelisted' };
+    const caption = reqData.caption;
+    if (!caption) {
+      return { message: 'Parameter caption is missing' };
+    }
+
+    return await this.waService.sendMedia(number, 'test.png', caption);
   }
 
   async startConnectionReq(reqData) {
