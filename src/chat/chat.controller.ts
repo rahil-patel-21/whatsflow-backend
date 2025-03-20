@@ -1,6 +1,16 @@
 // Imports
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ChatService } from './chat.service';
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { kUploadFileObj } from 'src/constant/objects';
 
 @Controller('chat')
 export class ChatController {
@@ -27,7 +37,9 @@ export class ChatController {
   }
 
   @Post('sendMedia')
-  async funSendMedia(@Body() body) {
+  @UseInterceptors(FileInterceptor('file', kUploadFileObj()))
+  async funSendMedia(@Body() body, @UploadedFile() file) {
+    body.file = file;
     return await this.service.sendMedia(body);
   }
 

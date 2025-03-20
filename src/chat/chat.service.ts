@@ -89,8 +89,9 @@ export class ChatService {
     if (!caption) {
       return { message: 'Parameter caption is missing' };
     }
+    const file = reqData.file;
 
-    return await this.waService.sendMedia(number, 'test.png', caption);
+    return await this.waService.sendMedia(number, file.filename, caption);
   }
 
   async startConnectionReq(reqData) {
