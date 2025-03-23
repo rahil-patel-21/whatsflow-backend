@@ -358,8 +358,10 @@ export class WhatsAppService implements OnModuleInit {
       const msg = messages[index];
 
       let base64ImageContent = undefined;
+      let caption = undefined;
       if (msg.type == 'image') {
         const mediaKey = msg.mediaKey;
+        caption = msg.body;
         if (!media_data[mediaKey]) {
           const media = await msg.downloadMedia();
           const base64Data = media.data ?? '';
@@ -372,6 +374,7 @@ export class WhatsAppService implements OnModuleInit {
       }
 
       finalizedMsgs.push({
+        caption,
         content: base64ImageContent ?? (msg.body ?? '').replace(/  /g, ' \n\n'),
         deviceType: msg.deviceType ?? '',
         fromMe: msg.fromMe ?? false,
