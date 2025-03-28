@@ -1,7 +1,4 @@
 // Imports
-import { Env } from 'src/constant/env';
-import { Injectable, OnModuleInit } from '@nestjs/common';
-import { firestore_db } from 'src/thirdParty/google/firebase.service';
 import {
   Client,
   Message,
@@ -9,6 +6,9 @@ import {
   LocalAuth,
   MessageMedia,
 } from 'whatsapp-web.js';
+import { Env } from 'src/constant/env';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { firestore_db } from 'src/thirdParty/google/firebase.service';
 
 let client: Client;
 
