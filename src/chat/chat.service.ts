@@ -105,4 +105,8 @@ export class ChatService {
   async getChat(reqData) {
     return await this.waService.getChat(reqData.id);
   }
+
+  async setActiveSource(reqData) {
+    return await this.waService.setActiveSource(reqData);
+  }
 }

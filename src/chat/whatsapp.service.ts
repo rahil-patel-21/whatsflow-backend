@@ -33,6 +33,8 @@ const puppeteerConfig: any =
 const recent_chats = {};
 const media_data = {};
 
+let active_source: string = '';
+
 @Injectable()
 export class WhatsAppService implements OnModuleInit {
   onModuleInit() {
@@ -333,6 +335,10 @@ export class WhatsAppService implements OnModuleInit {
 
     finalizedList.sort((b, a) => a.timestamp - b.timestamp);
 
+    if (finalizedList.length > 0) {
+      active_source = finalizedList[0].source;
+    }
+
     return finalizedList;
   }
 
@@ -344,6 +350,8 @@ export class WhatsAppService implements OnModuleInit {
   }
 
   private async refreshMainChat(source) {
+    if (active_source && source != active_source) return {};
+
     const firebase_ref = await firestore_db
       .collection('Main-Chats')
       .doc(source);
@@ -400,5 +408,16 @@ export class WhatsAppService implements OnModuleInit {
     }
 
     return finalizedMsgs;
+  }
+
+  async setActiveSource(reqData) {
+    const source = reqData.source;
+    if (!source) return {};
+
+    active_source = source;
+
+    console.log({ active_source });
+
+    return {};
   }
 }

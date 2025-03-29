@@ -57,4 +57,9 @@ export class ChatController {
   async funGetChat(@Query() query) {
     return await this.service.getChat(query);
   }
+
+  @Post('setActiveSource')
+  async funSetActiveSource(@Body() body) {
+    return await this.service.setActiveSource(body);
+  }
 }
