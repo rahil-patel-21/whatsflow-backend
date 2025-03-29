@@ -121,6 +121,7 @@ export class WhatsAppService implements OnModuleInit {
 
       try {
         // const creationData = { type: 1, response: msg };
+        const source = (msg?.from ?? '')?.replace('@c.us', '');
         const recentChat = {
           content: msg.type == 'image' ? 'Image Attachment' : (msg?.body ?? ''),
           deviceType: msg?.deviceType ?? '',
@@ -133,9 +134,10 @@ export class WhatsAppService implements OnModuleInit {
             msg?._data?.notifyName ??
             '',
           profilePic,
-          source: (msg?.from ?? '')?.replace('@c.us', ''),
+          source,
           timestamp: msg?.timestamp * 1000,
           type: msg?.type ?? '',
+          unReadCounts: (recent_chats[source]?.unReadCounts ?? 0) + 1,
         };
 
         this.refreshRecentChat();
@@ -143,7 +145,7 @@ export class WhatsAppService implements OnModuleInit {
           console.log({ err });
         });
 
-        recent_chats[recentChat.source] = recentChat;
+        recent_chats[source] = recentChat;
       } catch (error) {}
     });
 
@@ -252,6 +254,7 @@ export class WhatsAppService implements OnModuleInit {
       source: (msg?.to ?? '')?.replace('@c.us', ''),
       timestamp: msg?.timestamp * 1000,
       type: msg?.type ?? '',
+      unReadCounts: 0,
     };
     recent_chats[recentChat.source] = recentChat;
 
@@ -275,6 +278,11 @@ export class WhatsAppService implements OnModuleInit {
 
     const media = MessageMedia.fromFilePath(mediaPath);
     const response = await client.sendMessage(number, media, { caption });
+
+    if (recent_chats[chatId.slice(-10)]) {
+      recent_chats[chatId.slice(-10)].unReadCounts = 0;
+    }
+
     return { response };
   }
 
@@ -308,6 +316,7 @@ export class WhatsAppService implements OnModuleInit {
           profilePic,
           timestamp: chatData.timestamp * 1000,
           to,
+          unReadCounts: 0,
         };
         recent_chats[recentChat.source] = recentChat;
       } catch (error) {}
@@ -385,6 +394,10 @@ export class WhatsAppService implements OnModuleInit {
     }
 
     finalizedMsgs.sort((a, b) => a.timestamp - b.timestamp);
+
+    if (recent_chats[chatId]) {
+      recent_chats[chatId].unReadCounts = 0;
+    }
 
     return finalizedMsgs;
   }
