@@ -9,5 +9,3 @@ export const Env = {
     whitelisted_numbers: (process.env.WA_WHITELISTED_NUMBERS ?? '').split(','),
   },
 };
-
-console.log('Env', Env);
