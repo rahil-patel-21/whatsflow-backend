@@ -38,7 +38,7 @@ let active_source: string = '';
 @Injectable()
 export class WhatsAppService implements OnModuleInit {
   onModuleInit() {
-    this.connectClient();
+    //  this.connectClient();
   }
 
   connectClient() {

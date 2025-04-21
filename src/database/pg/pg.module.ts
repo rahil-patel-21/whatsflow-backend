@@ -1,11 +1,11 @@
 // Imports
+import { Env } from 'src/config/env';
 import { Module } from '@nestjs/common';
 import { PgService } from './pg.service';
+import { PG_CORE_ENTITIES } from './pg.entities';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { postgresqlConfigs } from 'src/config/configuration';
-import { PG_CORE_ENTITIES } from './pg.entities';
-import { Env } from 'src/config/env';
 
 @Module({
   imports: [
@@ -17,7 +17,7 @@ import { Env } from 'src/config/env';
         ...postgresqlConfigs,
         database: Env.database.postgresql.core_db_name,
         define: {
-          freezeTableName: false,
+          freezeTableName: true,
           charset: 'utf8',
           collate: 'utf8_general_ci',
         },
