@@ -17,5 +17,9 @@ function getYamlConfig() {
 
 export const serverConfigs = YAML_CONFIG['server'] ?? {};
 
+export const companyConfigs = YAML_CONFIG['company'] ?? {};
+
 export const postgresqlConfigs =
   (YAML_CONFIG['database'] ?? {})['postgresql'] ?? {};
+
+export const mailJetConfigs = YAML_CONFIG['mailjet'] ?? {};
