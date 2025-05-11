@@ -1,0 +1,48 @@
+// Imports
+import { Injectable } from '@nestjs/common';
+import { StrService } from 'src/utils/string';
+import { PgService } from 'src/database/pg/pg.service';
+import { UserTable } from 'src/database/pg/entities/user.entities';
+import { raiseBadRequest, raiseParamMissing } from 'src/config/error';
+import { MailJetService } from 'src/thirdParty/mailjet/mailjet.service';
+import { SIGN_UP_OTP_HTML } from 'src/constant/strings';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private readonly pg: PgService,
+    private readonly str: StrService,
+    private readonly mailJet: MailJetService,
+  ) {}
+
+  async signUp(reqData) {
+    const email: string = reqData.email;
+    if (!email) {
+      raiseParamMissing('email');
+    }
+    const password: string = reqData.password;
+    if (!password) {
+      raiseParamMissing('password');
+    }
+
+    const userData = await this.pg.findOne(UserTable, { where: { email } });
+    if (userData) {
+      raiseBadRequest('User already exists !');
+    }
+
+    const otp = this.str.generateOTP();
+    await this.pg.create(UserTable, {
+      email,
+      password,
+      otp,
+    });
+
+    await this.mailJet.sendMail({
+      email,
+      subject: `Account verification`,
+      htmlContent: SIGN_UP_OTP_HTML.replace('OTP_CODE', otp),
+    });
+
+    return { success: true, message: 'Account created successfully !' };
+  }
+}
