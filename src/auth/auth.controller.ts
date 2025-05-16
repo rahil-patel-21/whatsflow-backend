@@ -10,4 +10,14 @@ export class AuthController {
   async funSignUp(@Body() body) {
     return await this.service.signUp(body);
   }
+
+  @Post('validateOTP')
+  async funValidateOTP(@Body() body) {
+    return await this.service.validateOTP(body);
+  }
+
+  @Post('signIn')
+  async funSignIn(@Body() body) {
+    return await this.service.signIn(body);
+  }
 }

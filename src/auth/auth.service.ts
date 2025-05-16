@@ -45,4 +45,46 @@ export class AuthService {
 
     return { success: true, message: 'Account created successfully !' };
   }
+
+  async validateOTP(reqData) {
+    const email: string = reqData.email;
+    if (!email) {
+      raiseParamMissing('email');
+    }
+    const otp: string = reqData.otp;
+    if (!otp) {
+      raiseParamMissing('otp');
+    }
+
+    const userData = await this.pg.findOne(UserTable, { where: { email } });
+    if (!userData) {
+      raiseBadRequest('User not found !');
+    }
+    if (userData.otp != otp) {
+      raiseBadRequest('Invalid OTP, Please try again later.');
+    }
+
+    return { success: true, message: 'OTP verified successfully !' };
+  }
+
+  async signIn(reqData) {
+    const email: string = reqData.email;
+    if (!email) {
+      raiseParamMissing('email');
+    }
+    const password: string = reqData.password;
+    if (!password) {
+      raiseParamMissing('password');
+    }
+
+    const userData = await this.pg.findOne(UserTable, { where: { email } });
+    if (!userData) {
+      raiseBadRequest('Email does not exists, Please sign up instead !');
+    }
+    if (userData.password != password) {
+      raiseBadRequest('Invalid credentials, Please try again later !');
+    }
+
+    return { success: true, message: 'Sign in successfully !' };
+  }
 }
