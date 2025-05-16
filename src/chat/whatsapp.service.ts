@@ -343,6 +343,7 @@ export class WhatsAppService implements OnModuleInit {
   }
 
   private async refreshRecentChat() {
+    return {};
     const firebase_ref = await firestore_db
       .collection('Recent-Chats')
       .doc('Default');
@@ -351,6 +352,7 @@ export class WhatsAppService implements OnModuleInit {
 
   private async refreshMainChat(source) {
     if (active_source && source != active_source) return {};
+    return {};
 
     const firebase_ref = await firestore_db
       .collection('Main-Chats')
