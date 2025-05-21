@@ -67,6 +67,31 @@ export class AuthService {
     return { success: true, message: 'OTP verified successfully !' };
   }
 
+  async resendOTP(reqData) {
+    const email: string = reqData.email;
+    if (!email) {
+      raiseParamMissing('email');
+    }
+
+    const userData: UserTable = await this.pg.findOne(UserTable, {
+      where: { email },
+    });
+    if (!userData) {
+      raiseBadRequest('User not found !');
+    }
+
+    const otp = this.str.generateOTP();
+    await this.mailJet.sendMail({
+      email,
+      subject: `Account verification`,
+      htmlContent: SIGN_UP_OTP_HTML.replace('OTP_CODE', otp),
+    });
+
+    await this.pg.update(UserTable, { otp }, { where: { id: userData.id } });
+
+    return { success: true, message: 'OTP sent successfully !' };
+  }
+
   async signIn(reqData) {
     const email: string = reqData.email;
     if (!email) {
