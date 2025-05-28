@@ -12,6 +12,14 @@ import { firestore_db } from 'src/thirdParty/google/firebase.service';
 
 let client: Client;
 
+type WAHandler = {
+  [key: string]: {
+    client: Client;
+    info: { is_active: boolean; session_expire_time: Date };
+  };
+};
+const wa_handler: WAHandler = {};
+
 export const wa_client = { isConnected: false };
 
 const puppeteerConfig: any =
@@ -38,7 +46,47 @@ let active_source: string = '';
 @Injectable()
 export class WhatsAppService implements OnModuleInit {
   onModuleInit() {
-    this.connectClient();
+    //this.connectClient();
+  }
+
+  async requestCode(country_code: string, mobile_number: string) {
+    if (wa_handler[mobile_number]) {
+      console.log('Already Exists !');
+      return {};
+    }
+
+    const client = new Client({
+      authStrategy: new LocalAuth({
+        clientId: mobile_number,
+        dataPath: 'session_data',
+      }),
+      puppeteer: puppeteerConfig,
+    });
+
+    return new Promise((resolve, reject) => {
+      let pairingCodeRequested = false;
+
+      client.on('qr', async () => {
+        if (!pairingCodeRequested) {
+          pairingCodeRequested = true;
+          try {
+            const pairingCode = await client.requestPairingCode(
+              country_code + mobile_number,
+            );
+            console.log('Pairing code enabled, code:', pairingCode);
+            resolve({ code: pairingCode });
+          } catch (err) {
+            reject(err);
+          }
+        }
+      });
+
+      client.on('auth_failure', (msg) => {
+        reject(new Error(`Authentication failed: ${msg}`));
+      });
+
+      client.initialize();
+    });
   }
 
   connectClient() {
