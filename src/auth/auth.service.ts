@@ -64,7 +64,11 @@ export class AuthService {
       raiseBadRequest('Invalid OTP, Please try again later.');
     }
 
-    return { success: true, message: 'OTP verified successfully !' };
+    return {
+      success: true,
+      message: 'OTP verified successfully !',
+      data: { org_id: userData.id },
+    };
   }
 
   async resendOTP(reqData) {
