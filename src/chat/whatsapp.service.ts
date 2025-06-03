@@ -45,9 +45,7 @@ let active_source: string = '';
 
 @Injectable()
 export class WhatsAppService implements OnModuleInit {
-  onModuleInit() {
-    //this.connectClient();
-  }
+  onModuleInit() {}
 
   async requestCode(country_code: string, mobile_number: string) {
     if (wa_handler[mobile_number]) {
@@ -65,24 +63,43 @@ export class WhatsAppService implements OnModuleInit {
 
     return new Promise((resolve, reject) => {
       let pairingCodeRequested = false;
+      let isResolved = false; // This ensures only one resolve or reject happens
 
       client.on('qr', async () => {
-        if (!pairingCodeRequested) {
+        if (!pairingCodeRequested && !isResolved) {
           pairingCodeRequested = true;
           try {
             const pairingCode = await client.requestPairingCode(
               country_code + mobile_number,
             );
-            console.log('Pairing code enabled, code:', pairingCode);
-            resolve({ code: pairingCode });
+            isResolved = true;
+            resolve({ code: pairingCode, isAuthCompleted: false });
           } catch (err) {
+            isResolved = true;
             reject(err);
           }
         }
       });
 
       client.on('auth_failure', (msg) => {
-        reject(new Error(`Authentication failed: ${msg}`));
+        if (!isResolved) {
+          isResolved = true;
+          reject(new Error(`Authentication failed: ${msg}`));
+        }
+      });
+
+      client.on('ready', async () => {
+        if (!isResolved) {
+          client.pupPage?.on('pageerror', function (err: Error) {
+            console.log('Page error: ' + err.toString());
+          });
+          client.pupPage?.on('error', function (err: Error) {
+            console.log('Page error: ' + err.toString());
+          });
+
+          isResolved = true;
+          resolve({ code: null, isAuthCompleted: true });
+        }
       });
 
       client.initialize();
