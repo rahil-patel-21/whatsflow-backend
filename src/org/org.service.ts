@@ -4,6 +4,7 @@ import { raiseParamMissing } from 'src/config/error';
 import { PgService } from 'src/database/pg/pg.service';
 import { ChannelTable } from 'src/database/pg/entities/channel.entities';
 import { WhatsAppService } from 'src/chat/whatsapp.service';
+import { firestore_db } from 'src/thirdParty/google/firebase.service';
 
 @Injectable()
 export class OrgService {
@@ -44,10 +45,38 @@ export class OrgService {
       mobile_number,
     );
 
+    this.notifyInitChannel({
+      code_response,
+      org_id,
+      country_code,
+      mobile_number,
+    });
+
     return {
       success: true,
       data: code_response,
       message: 'Code generated successfully !',
     };
+  }
+
+  private async notifyInitChannel(reqData) {
+    const firebase_ref = await firestore_db
+      .collection('Init-Channels')
+      .doc(reqData.org_id)
+      .collection('mobile_number')
+      .doc(`${reqData.country_code}${reqData.mobile_number}`);
+
+    const existing_data = (await firebase_ref.get()).data();
+    if (!existing_data) {
+      await firebase_ref.create({
+        code: reqData.code_response.code,
+        isAuthCompleted: reqData.code_response.isAuthCompleted,
+      });
+    } else {
+      await firebase_ref.update({
+        code: reqData.code_response.code,
+        isAuthCompleted: reqData.code_response.isAuthCompleted,
+      });
+    }
   }
 }

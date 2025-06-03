@@ -176,6 +176,10 @@ export class AuthService {
       raiseBadRequest('Invalid credentials, Please try again later !');
     }
 
-    return { success: true, message: 'Sign in successfully !' };
+    return {
+      success: true,
+      message: 'Sign in successfully !',
+      data: { org_id: userData.id },
+    };
   }
 }
