@@ -98,12 +98,12 @@ export class ChatService {
     return { codeSent: true };
   }
 
-  async recentChats() {
-    return await this.waService.recentChats();
+  async recentChats(reqData) {
+    return await this.waService.recentChats(reqData?.mobile_number);
   }
 
   async getChat(reqData) {
-    return await this.waService.getChat(reqData.id);
+    return await this.waService.getChat(reqData.id, reqData?.mobile_number);
   }
 
   async setActiveSource(reqData) {

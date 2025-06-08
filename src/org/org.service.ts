@@ -71,11 +71,13 @@ export class OrgService {
       await firebase_ref.create({
         code: reqData.code_response.code,
         isAuthCompleted: reqData.code_response.isAuthCompleted,
+        updatedAt: new Date().toJSON(),
       });
     } else {
       await firebase_ref.update({
         code: reqData.code_response.code,
         isAuthCompleted: reqData.code_response.isAuthCompleted,
+        updatedAt: new Date().toJSON(),
       });
     }
   }

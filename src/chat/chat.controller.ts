@@ -49,8 +49,8 @@ export class ChatController {
   }
 
   @Get('recentChats')
-  async funRecentChats() {
-    return await this.service.recentChats();
+  async funRecentChats(@Query() query) {
+    return await this.service.recentChats(query);
   }
 
   @Get('getChat')
