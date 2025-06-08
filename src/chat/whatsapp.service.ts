@@ -15,7 +15,11 @@ let client: Client;
 type WAHandler = {
   [key: string]: {
     client: Client;
-    info: { is_active: boolean; session_expire_time: Date };
+    info: {
+      is_active: boolean;
+      session_expire_time: Date;
+      recent_chats: any[];
+    };
   };
 };
 const wa_handler: WAHandler = {};
@@ -38,7 +42,6 @@ const puppeteerConfig: any =
         ],
       };
 
-const recent_chats = {};
 const media_data = {};
 
 let active_source: string = '';
@@ -48,9 +51,8 @@ export class WhatsAppService implements OnModuleInit {
   onModuleInit() {}
 
   async requestCode(country_code: string, mobile_number: string) {
-    if (wa_handler[mobile_number]) {
-      console.log('Already Exists !');
-      return {};
+    if (wa_handler[country_code + mobile_number]) {
+      return { code: null, isAuthCompleted: true };
     }
 
     const client = new Client({
@@ -98,8 +100,68 @@ export class WhatsAppService implements OnModuleInit {
           });
 
           isResolved = true;
+          wa_handler[country_code + mobile_number] = {
+            client,
+            info: {
+              is_active: true,
+              session_expire_time: null,
+              recent_chats: [],
+            },
+          };
+          this.preFillRecentChats(client, country_code + mobile_number).catch(
+            (err) => {
+              console.log({ err });
+            },
+          );
           resolve({ code: null, isAuthCompleted: true });
         }
+      });
+
+      client.on('message', async (msg: any) => {
+        if (msg?.type != 'chat' && msg?.type != 'image') return {};
+
+        if (msg.type == 'image') {
+          const media = await msg.downloadMedia();
+          const base64Data = media.data ?? '';
+          const mediaKey = msg.mediaKey;
+          media_data[mediaKey] = base64Data;
+        }
+
+        const contact = await msg.getContact();
+        const contactId = contact.id?._serialized ?? '';
+        const profilePic = await client.getProfilePicUrl(contactId);
+
+        try {
+          // const creationData = { type: 1, response: msg };
+          const source = (msg?.from ?? '')?.replace('@c.us', '');
+          const recentChat = {
+            content:
+              msg.type == 'image' ? 'Image Attachment' : (msg?.body ?? ''),
+            deviceType: msg?.deviceType ?? '',
+            from: (msg?.from ?? '')?.replace('@c.us', ''),
+            id: msg?.id?.id ?? '',
+            name:
+              contact?.name ??
+              contact?.shortName ??
+              contact?.pushname ??
+              msg?._data?.notifyName ??
+              '',
+            profilePic,
+            source,
+            timestamp: msg?.timestamp * 1000,
+            type: msg?.type ?? '',
+            unReadCounts:
+              (wa_handler[mobile_number].info.recent_chats[source]
+                ?.unReadCounts ?? 0) + 1,
+          };
+
+          this.refreshRecentChat();
+          this.refreshMainChat(recentChat.source).catch((err) => {
+            console.log({ err });
+          });
+
+          wa_handler[mobile_number].info.recent_chats[source] = recentChat;
+        } catch (error) {}
       });
 
       client.initialize();
@@ -156,7 +218,6 @@ export class WhatsAppService implements OnModuleInit {
         console.log('Page error: ' + err.toString());
       });
 
-      await this.preFillRecentChats();
       if (!wa_client.isConnected) {
         wa_client.isConnected = true;
         for (
@@ -170,50 +231,6 @@ export class WhatsAppService implements OnModuleInit {
           // });
         }
       }
-    });
-
-    client.on('message', async (msg: any) => {
-      if (msg?.type != 'chat' && msg?.type != 'image') return {};
-
-      if (msg.type == 'image') {
-        const media = await msg.downloadMedia();
-        const base64Data = media.data ?? '';
-        const mediaKey = msg.mediaKey;
-        media_data[mediaKey] = base64Data;
-      }
-
-      const contact = await msg.getContact();
-      const contactId = contact.id?._serialized ?? '';
-      const profilePic = await client.getProfilePicUrl(contactId);
-
-      try {
-        // const creationData = { type: 1, response: msg };
-        const source = (msg?.from ?? '')?.replace('@c.us', '');
-        const recentChat = {
-          content: msg.type == 'image' ? 'Image Attachment' : (msg?.body ?? ''),
-          deviceType: msg?.deviceType ?? '',
-          from: (msg?.from ?? '')?.replace('@c.us', ''),
-          id: msg?.id?.id ?? '',
-          name:
-            contact?.name ??
-            contact?.shortName ??
-            contact?.pushname ??
-            msg?._data?.notifyName ??
-            '',
-          profilePic,
-          source,
-          timestamp: msg?.timestamp * 1000,
-          type: msg?.type ?? '',
-          unReadCounts: (recent_chats[source]?.unReadCounts ?? 0) + 1,
-        };
-
-        this.refreshRecentChat();
-        this.refreshMainChat(recentChat.source).catch((err) => {
-          console.log({ err });
-        });
-
-        recent_chats[source] = recentChat;
-      } catch (error) {}
     });
 
     client.on('message_create', async (msg: Message) => {
@@ -323,14 +340,20 @@ export class WhatsAppService implements OnModuleInit {
       type: msg?.type ?? '',
       unReadCounts: 0,
     };
-    recent_chats[recentChat.source] = recentChat;
+    wa_handler[body.mobile_number].info.recent_chats[recentChat.source] =
+      recentChat;
 
     this.refreshRecentChat();
 
     return {};
   }
 
-  async sendMedia(chatId: string, mediaPath: string, caption: string = '') {
+  async sendMedia(
+    chatId: string,
+    mediaPath: string,
+    caption: string = '',
+    mobile_number: string = '',
+  ) {
     let number = chatId;
     if (number.length == 12) {
       number = number.slice(-10);
@@ -346,23 +369,24 @@ export class WhatsAppService implements OnModuleInit {
     const media = MessageMedia.fromFilePath(mediaPath);
     const response = await client.sendMessage(number, media, { caption });
 
-    if (recent_chats[chatId.slice(-10)]) {
-      recent_chats[chatId.slice(-10)].unReadCounts = 0;
+    if (wa_handler[mobile_number].info.recent_chats[chatId.slice(-10)]) {
+      wa_handler[mobile_number].info.recent_chats[
+        chatId.slice(-10)
+      ].unReadCounts = 0;
     }
 
     return { response };
   }
 
-  private async preFillRecentChats() {
+  private async preFillRecentChats(client, mobile_number) {
     const chats = await client.getChats();
+
     for (let index = 0; index < chats.length; index++) {
       try {
         const chatData = chats[index];
-        if (chatData.archived == true) continue;
-
         const lastMsg: any = chatData.lastMessage ?? {};
         const last_msg_type = lastMsg.type ?? '';
-        if (last_msg_type != 'chat' && last_msg_type != 'image') continue;
+
         const last_msg_content = lastMsg.body ?? '';
 
         const from = (lastMsg?.from ?? '').replace('@c.us', '');
@@ -371,7 +395,8 @@ export class WhatsAppService implements OnModuleInit {
 
         const contact = await lastMsg.getContact();
         const contactId = contact.id?._serialized ?? '';
-        const profilePic = await client.getProfilePicUrl(contactId);
+        const profilePic =
+          contactId == '0@c.us' ? '' : await client.getProfilePicUrl(contactId);
 
         const recentChat = {
           from,
@@ -380,21 +405,24 @@ export class WhatsAppService implements OnModuleInit {
           deviceType: lastMsg?.deviceType ?? '',
           name: chatData.name ?? '',
           source,
-          profilePic,
+          profilePic: profilePic ?? '',
           timestamp: chatData.timestamp * 1000,
           to,
           unReadCounts: 0,
         };
-        recent_chats[recentChat.source] = recentChat;
-      } catch (error) {}
+        wa_handler[mobile_number].info.recent_chats[recentChat.source] =
+          recentChat;
+      } catch (error) {
+        console.log({ error });
+      }
     }
   }
 
-  async recentChats() {
+  async recentChats(mobile_number) {
     const finalizedList = [];
 
-    for (const key in recent_chats) {
-      const value = recent_chats[key];
+    for (const key in wa_handler[mobile_number].info.recent_chats) {
+      const value = wa_handler[mobile_number].info.recent_chats[key];
       finalizedList.push(value);
     }
 
@@ -429,7 +457,7 @@ export class WhatsAppService implements OnModuleInit {
     }
   }
 
-  async getChat(chatId) {
+  async getChat(chatId, mobile_number) {
     if (!chatId) return [];
 
     const chat = await client.getChatById(chatId + '@c.us');
@@ -470,8 +498,8 @@ export class WhatsAppService implements OnModuleInit {
 
     finalizedMsgs.sort((a, b) => a.timestamp - b.timestamp);
 
-    if (recent_chats[chatId]) {
-      recent_chats[chatId].unReadCounts = 0;
+    if (wa_handler[mobile_number].info.recent_chats[chatId]) {
+      wa_handler[mobile_number].info.recent_chats[chatId].unReadCounts = 0;
     }
 
     return finalizedMsgs;
