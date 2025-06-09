@@ -95,36 +95,39 @@ export class WhatsAppService implements OnModuleInit {
       });
 
       client.on('ready', async () => {
-        if (!isResolved) {
-          client.pupPage?.on('pageerror', function (err: Error) {
-            console.log('Page error: ' + err.toString());
-          });
-          client.pupPage?.on('error', function (err: Error) {
-            console.log('Page error: ' + err.toString());
-          });
+        client.pupPage?.on('pageerror', function (err: Error) {
+          console.log('Page error: ' + err.toString());
+        });
+        client.pupPage?.on('error', function (err: Error) {
+          console.log('Page error: ' + err.toString());
+        });
 
+        wa_handler[country_code + mobile_number] = {
+          client,
+          info: {
+            is_active: true,
+            session_expire_time: null,
+            recent_chats: [],
+          },
+        };
+        this.preFillRecentChats(
+          client,
+          country_code + mobile_number,
+          org_id,
+        ).catch((err) => {
+          console.log({ err });
+        });
+        this.notifyInitChannel({
+          code_response: { isAuthCompleted: true },
+          country_code,
+          mobile_number,
+          org_id,
+        }).catch((err) => {
+          console.log({ err });
+        });
+
+        if (!isResolved) {
           isResolved = true;
-          wa_handler[country_code + mobile_number] = {
-            client,
-            info: {
-              is_active: true,
-              session_expire_time: null,
-              recent_chats: [],
-            },
-          };
-          this.preFillRecentChats(client, country_code + mobile_number).catch(
-            (err) => {
-              console.log({ err });
-            },
-          );
-          this.notifyInitChannel({
-            code_response: { isAuthCompleted: true },
-            country_code,
-            mobile_number,
-            org_id,
-          }).catch((err) => {
-            console.log({ err });
-          });
           resolve({ code: null, isAuthCompleted: true });
         }
       });
@@ -187,6 +190,16 @@ export class WhatsAppService implements OnModuleInit {
       .collection('mobile_number')
       .doc(`${reqData.country_code}${reqData.mobile_number}`);
 
+    if (reqData.code_response.isAuthCompleted) {
+      this.notifyLoadingChats(
+        reqData.org_id,
+        `${reqData.country_code}${reqData.mobile_number}`,
+        true,
+      ).catch((err) => {
+        console.log({ err });
+      });
+    }
+
     const existing_data = (await firebase_ref.get()).data();
     if (!existing_data) {
       await firebase_ref.create({
@@ -195,9 +208,36 @@ export class WhatsAppService implements OnModuleInit {
         updatedAt: new Date().toJSON(),
       });
     } else {
-      await firebase_ref.update({
+      const updateData = {
         code: reqData.code_response.code,
         isAuthCompleted: reqData.code_response.isAuthCompleted,
+        updatedAt: new Date().toJSON(),
+      };
+      if (!updateData.code) delete updateData.code;
+      await firebase_ref.update(updateData);
+    }
+  }
+
+  private async notifyLoadingChats(
+    org_id: string,
+    mobile_number: string,
+    is_loading: boolean,
+  ) {
+    const firebase_ref = await firestore_db
+      .collection('loading-chat')
+      .doc(org_id)
+      .collection('mobile_number')
+      .doc(mobile_number);
+    const existing_data = (await firebase_ref.get()).data();
+
+    if (!existing_data) {
+      await firebase_ref.create({
+        is_loading,
+        updatedAt: new Date().toJSON(),
+      });
+    } else {
+      await firebase_ref.update({
+        is_loading,
         updatedAt: new Date().toJSON(),
       });
     }
@@ -413,7 +453,7 @@ export class WhatsAppService implements OnModuleInit {
     return { response };
   }
 
-  private async preFillRecentChats(client, mobile_number) {
+  private async preFillRecentChats(client, mobile_number, org_id) {
     const chats = await client.getChats();
 
     for (let index = 0; index < chats.length; index++) {
@@ -428,8 +468,11 @@ export class WhatsAppService implements OnModuleInit {
         const to = (lastMsg?.to ?? '').replace('@c.us', '');
         const source = from.includes(Env.wa.number) ? to : from;
 
-        const contact = await lastMsg.getContact();
-        const contactId = contact.id?._serialized ?? '';
+        const contact =
+          chatData.isGroup || !chatData.lastMessage
+            ? {}
+            : await lastMsg.getContact();
+        const contactId = contact.id?._serialized ?? '0@c.us';
         const profilePic =
           contactId == '0@c.us' ? '' : await client.getProfilePicUrl(contactId);
 
@@ -451,6 +494,10 @@ export class WhatsAppService implements OnModuleInit {
         console.log({ error });
       }
     }
+
+    this.notifyLoadingChats(org_id, `${mobile_number}`, false).catch((err) => {
+      console.log({ err });
+    });
   }
 
   async recentChats(mobile_number) {
