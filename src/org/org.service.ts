@@ -43,6 +43,7 @@ export class OrgService {
     const code_response = await this.wa.requestCode(
       country_code,
       mobile_number,
+      org_id,
     );
 
     this.notifyInitChannel({
