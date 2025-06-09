@@ -50,7 +50,11 @@ let active_source: string = '';
 export class WhatsAppService implements OnModuleInit {
   onModuleInit() {}
 
-  async requestCode(country_code: string, mobile_number: string) {
+  async requestCode(
+    country_code: string,
+    mobile_number: string,
+    org_id: string,
+  ) {
     if (wa_handler[country_code + mobile_number]) {
       return { code: null, isAuthCompleted: true };
     }
@@ -113,6 +117,14 @@ export class WhatsAppService implements OnModuleInit {
               console.log({ err });
             },
           );
+          this.notifyInitChannel({
+            code_response: { isAuthCompleted: true },
+            country_code,
+            mobile_number,
+            org_id,
+          }).catch((err) => {
+            console.log({ err });
+          });
           resolve({ code: null, isAuthCompleted: true });
         }
       });
@@ -166,6 +178,29 @@ export class WhatsAppService implements OnModuleInit {
 
       client.initialize();
     });
+  }
+
+  private async notifyInitChannel(reqData) {
+    const firebase_ref = await firestore_db
+      .collection('Init-Channels')
+      .doc(reqData.org_id)
+      .collection('mobile_number')
+      .doc(`${reqData.country_code}${reqData.mobile_number}`);
+
+    const existing_data = (await firebase_ref.get()).data();
+    if (!existing_data) {
+      await firebase_ref.create({
+        code: reqData.code_response.code,
+        isAuthCompleted: reqData.code_response.isAuthCompleted,
+        updatedAt: new Date().toJSON(),
+      });
+    } else {
+      await firebase_ref.update({
+        code: reqData.code_response.code,
+        isAuthCompleted: reqData.code_response.isAuthCompleted,
+        updatedAt: new Date().toJSON(),
+      });
+    }
   }
 
   connectClient() {
