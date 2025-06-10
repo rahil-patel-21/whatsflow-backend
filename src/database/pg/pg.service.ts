@@ -51,8 +51,7 @@ export class PgService {
     const repo = this.getDBConnection(modelName);
     if (!repo || !options.where)
       throw new HTTPError({ statusCode: HttpStatus.INTERNAL_SERVER_ERROR });
-    if (!options.where['id'] && !options.where['transaction_id'])
-      throw new HTTPError({ statusCode: HttpStatus.INTERNAL_SERVER_ERROR });
+
     try {
       const update: any = await repo.update(data, {
         ...options,
