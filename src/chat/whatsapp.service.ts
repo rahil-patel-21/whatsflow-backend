@@ -9,6 +9,8 @@ import {
 import { Env } from 'src/constant/env';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { firestore_db } from 'src/thirdParty/google/firebase.service';
+import { PgService } from 'src/database/pg/pg.service';
+import { ChannelTable } from 'src/database/pg/entities/channel.entities';
 
 let client: Client;
 
@@ -46,9 +48,15 @@ const media_data = {};
 
 let active_source: string = '';
 
+let is_puppy_loaded = false;
+
 @Injectable()
 export class WhatsAppService implements OnModuleInit {
-  onModuleInit() {}
+  constructor(private readonly pg: PgService) {}
+
+  onModuleInit() {
+    this.syncChannelsForPupeteer();
+  }
 
   async requestCode(
     country_code: string,
@@ -125,6 +133,12 @@ export class WhatsAppService implements OnModuleInit {
         }).catch((err) => {
           console.log({ err });
         });
+
+        this.syncChannelInDB(mobile_number, country_code, org_id).catch(
+          (err) => {
+            console.log({ err });
+          },
+        );
 
         if (!isResolved) {
           isResolved = true;
@@ -240,6 +254,63 @@ export class WhatsAppService implements OnModuleInit {
         is_loading,
         updatedAt: new Date().toJSON(),
       });
+    }
+  }
+
+  private async syncChannelInDB(
+    mobile_number: string,
+    country_code: string,
+    org_id: string,
+  ) {
+    try {
+      const existing_data = await this.pg.findOne(ChannelTable, {
+        attributes: ['is_active'],
+        where: { mobile_number },
+      });
+      // Update existing data
+      if (existing_data) {
+        if (existing_data.is_active != true) {
+          await this.pg.update(
+            ChannelTable,
+            { is_active: true },
+            { where: { mobile_number } },
+          );
+        }
+      }
+      // Create new data
+      else {
+        await this.pg.create(ChannelTable, {
+          mobile_number,
+          country_code,
+          org_id,
+          is_active: true,
+        });
+      }
+    } catch (error) {
+      console.log({ error });
+    }
+  }
+
+  private async syncChannelsForPupeteer() {
+    if (is_puppy_loaded) {
+      return {};
+    }
+    is_puppy_loaded = true;
+
+    const target_numbers = await this.pg.findAll(ChannelTable, {
+      attributes: ['country_code', 'mobile_number', 'org_id'],
+      where: { is_active: true },
+    });
+
+    for (let index = 0; index < target_numbers.length; index++) {
+      try {
+        const data: ChannelTable = target_numbers[index];
+        await this.requestCode(
+          data.country_code,
+          data.mobile_number,
+          data.org_id,
+        );
+      } catch (error) {}
     }
   }
 

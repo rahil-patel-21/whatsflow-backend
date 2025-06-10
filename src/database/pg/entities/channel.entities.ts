@@ -1,14 +1,14 @@
 // Imports
 import { Table, Column, Model, DataType } from 'sequelize-typescript';
 
-@Table({})
+@Table({ timestamps: false })
 export class ChannelTable extends Model<ChannelTable> {
   @Column({
-    defaultValue: DataType.TEXT,
+    allowNull: false,
     primaryKey: true,
-    type: DataType.TEXT,
+    type: DataType.STRING(10),
   })
-  channel_id: string;
+  mobile_number: string;
 
   @Column({
     allowNull: false,
@@ -23,12 +23,6 @@ export class ChannelTable extends Model<ChannelTable> {
   country_code: string;
 
   @Column({
-    allowNull: false,
-    type: DataType.STRING(10),
-  })
-  mobile_number: string;
-
-  @Column({
     defaultValue: true,
     type: DataType.BOOLEAN,
   })
@@ -37,8 +31,7 @@ export class ChannelTable extends Model<ChannelTable> {
 
 export const channel_table_create_raw_query = `
 CREATE TABLE "ChannelTable" (
-  channel_id TEXT PRIMARY KEY NOT NULL,
+  mobile_number TEXT PRIMARY KEY NOT NULL,
   org_id UUID NOT NULL,
   country_code TEXT NOT NULL,
-  mobile_number VARCHAR(10) NOT NULL,
   is_active BOOLEAN DEFAULT TRUE);`;
