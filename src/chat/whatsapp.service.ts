@@ -613,9 +613,11 @@ export class WhatsAppService implements OnModuleInit {
   async getChat(chatId, mobile_number) {
     if (!chatId) return [];
 
-    const chat = await client.getChatById(chatId + '@c.us');
+    const chat = await wa_handler[mobile_number].client.getChatById(
+      chatId + '@c.us',
+    );
     const messages = await chat.fetchMessages({
-      limit: 100,
+      limit: 50,
     });
 
     const finalizedMsgs = [];
