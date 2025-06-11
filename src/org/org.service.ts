@@ -19,7 +19,10 @@ export class OrgService {
       raiseParamMissing('org_id');
     }
 
-    const channels = await this.pg.findAll(ChannelTable, { where: { org_id } });
+    const channels = await this.pg.findAll(ChannelTable, {
+      attributes: ['country_code', 'mobile_number', 'is_active'],
+      where: { org_id },
+    });
 
     return { success: true, data: channels };
   }
