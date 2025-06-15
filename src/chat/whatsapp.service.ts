@@ -521,6 +521,7 @@ export class WhatsAppService implements OnModuleInit {
     for (let index = 0; index < chats.length; index++) {
       try {
         const chatData = chats[index];
+
         const lastMsg: any = chatData.lastMessage ?? {};
         const last_msg_type = lastMsg.type ?? '';
 
@@ -528,7 +529,11 @@ export class WhatsAppService implements OnModuleInit {
 
         const from = (lastMsg?.from ?? '').replace('@c.us', '');
         const to = (lastMsg?.to ?? '').replace('@c.us', '');
-        const source = from.includes(Env.wa.number) ? to : from;
+        const source = chatData.isGroup
+          ? chatData.id_serialized
+          : from.includes(Env.wa.number)
+            ? to
+            : from;
 
         const contact =
           chatData.isGroup || !chatData.lastMessage
@@ -579,11 +584,12 @@ export class WhatsAppService implements OnModuleInit {
     return finalizedList;
   }
 
-  async getChat(chatId, mobile_number) {
+  async getChat(chatId: string, mobile_number) {
     if (!chatId) return [];
 
+    const isGrpChat = chatId.endsWith('@g.us');
     const chat = await wa_handler[mobile_number].client.getChatById(
-      chatId + '@c.us',
+      isGrpChat ? chatId : chatId + '@c.us',
     );
     const messages = await chat.fetchMessages({
       limit: 50,
