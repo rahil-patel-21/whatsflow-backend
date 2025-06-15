@@ -184,11 +184,6 @@ export class WhatsAppService implements OnModuleInit {
                 ?.unReadCounts ?? 0) + 1,
           };
 
-          this.refreshRecentChat();
-          this.refreshMainChat(recentChat.source).catch((err) => {
-            console.log({ err });
-          });
-
           wa_handler[mobile_number].info.recent_chats[source] = recentChat;
         } catch (error) {}
       });
@@ -436,7 +431,8 @@ export class WhatsAppService implements OnModuleInit {
   async isRegistered(body) {
     try {
       const countryCode = body.countryCode ?? '91';
-      const isRegistered = await client.isRegisteredUser(
+      const mobile_number = body.mobile_number;
+      const isRegistered = await this.getClient(mobile_number).isRegisteredUser(
         countryCode + body?.number,
       );
       return { isRegistered };
@@ -450,25 +446,22 @@ export class WhatsAppService implements OnModuleInit {
     if (number.length == 12) {
       number = number.slice(-10);
     }
-
-    const isRegistered = await this.isRegistered({ number });
+    const mobile_number = body.mobile_number;
+    const isRegistered = await this.isRegistered({ mobile_number, number });
     if (isRegistered?.isRegistered != true) return isRegistered;
 
     if (number.length == 10) {
       number = `91${number}@c.us`;
     }
+
     const text = body?.text ?? '';
 
-    try {
-      // const creationData = { type: 2, response: { number, text } };
-    } catch (error) {}
+    const msg: any = await this.getClient(mobile_number).sendMessage(
+      number,
+      text,
+    );
 
-    const msg: any = await client.sendMessage(number, text);
-    this.refreshMainChat(number.replace('@c.us', '')).catch((err) => {
-      console.log(err);
-    });
-
-    const contact = await client.getContactById(msg?.to);
+    const contact = await this.getClient(mobile_number).getContactById(msg?.to);
     const recentChat = {
       content: msg?.body ?? '',
       deviceType: msg?.deviceType ?? '',
@@ -480,7 +473,7 @@ export class WhatsAppService implements OnModuleInit {
         contact?.shortName ??
         msg?._data?.notifyName ??
         '',
-      profilePic: await client.getProfilePicUrl(msg?.to),
+      profilePic: await this.getClient(mobile_number).getProfilePicUrl(msg?.to),
       source: (msg?.to ?? '')?.replace('@c.us', ''),
       timestamp: msg?.timestamp * 1000,
       type: msg?.type ?? '',
@@ -488,8 +481,6 @@ export class WhatsAppService implements OnModuleInit {
     };
     wa_handler[body.mobile_number].info.recent_chats[recentChat.source] =
       recentChat;
-
-    this.refreshRecentChat();
 
     return {};
   }
@@ -588,28 +579,6 @@ export class WhatsAppService implements OnModuleInit {
     return finalizedList;
   }
 
-  private async refreshRecentChat() {
-    return {};
-    const firebase_ref = await firestore_db
-      .collection('Recent-Chats')
-      .doc('Default');
-    firebase_ref.update({ last_refreshed_at: new Date().getTime() });
-  }
-
-  private async refreshMainChat(source) {
-    if (active_source && source != active_source) return {};
-    return {};
-
-    const firebase_ref = await firestore_db
-      .collection('Main-Chats')
-      .doc(source);
-    try {
-      firebase_ref.update({ last_refreshed_at: new Date().getTime() });
-    } catch (error) {
-      firebase_ref.create({ last_refreshed_at: new Date().getTime() });
-    }
-  }
-
   async getChat(chatId, mobile_number) {
     if (!chatId) return [];
 
@@ -669,5 +638,9 @@ export class WhatsAppService implements OnModuleInit {
     console.log({ active_source });
 
     return {};
+  }
+
+  private getClient(mobile_number: string) {
+    return wa_handler[mobile_number].client;
   }
 }

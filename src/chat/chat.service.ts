@@ -41,13 +41,6 @@ export class ChatService {
   }
 
   async sendMsg(reqData) {
-    if (!wa_client.isConnected) {
-      return {
-        message:
-          'You can not send msg as the number is disconnected, Please connect and try again',
-      };
-    }
-
     let number = reqData.number;
     if (!number) return { message: 'Parameter number is missing' };
     if (typeof number != 'string')
@@ -55,16 +48,18 @@ export class ChatService {
     if (number.length != 10 && number.length != 12)
       return { message: 'Parameter number is having invalid value' };
     number = number.slice(-10);
-    if (!Env.wa.whitelisted_numbers.includes(number))
-      return { message: 'Number is not whitelisted' };
     const text = reqData.text;
     if (!text) return { message: 'Parameter text is missing' };
     if (typeof text != 'string')
       return { message: 'Parameter text is having invalid value' };
     if (text.length <= 1)
       return { message: 'Minimum msg length should be 2 characters' };
+    const mobile_number = reqData.mobile_number;
+    if (!mobile_number) {
+      return { message: 'Parameter mobile_number is missing' };
+    }
 
-    this.waService.sendMsg({ number, text });
+    this.waService.sendMsg({ mobile_number, number, text });
     return { message: 'Message sent successfully !' };
   }
 
