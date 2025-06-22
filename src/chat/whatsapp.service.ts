@@ -11,6 +11,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { firestore_db } from 'src/thirdParty/google/firebase.service';
 import { PgService } from 'src/database/pg/pg.service';
 import { ChannelTable } from 'src/database/pg/entities/channel.entities';
+import { raiseBadRequest, raiseParamMissing } from 'src/config/error';
 
 let client: Client;
 
@@ -300,12 +301,24 @@ export class WhatsAppService implements OnModuleInit {
     for (let index = 0; index < target_numbers.length; index++) {
       try {
         const data: ChannelTable = target_numbers[index];
-        await this.requestCode(
-          data.country_code,
-          data.mobile_number,
-          data.org_id,
-        );
-      } catch (error) {}
+        this.requestCode(data.country_code, data.mobile_number, data.org_id)
+          .then(async (res: any) => {
+            if (res.isAuthCompleted == false) {
+              await this.pg.update(
+                ChannelTable,
+                { is_active: false },
+                { where: { mobile_number: data.mobile_number } },
+              );
+            } else {
+              console.log('Connected -> ', data.mobile_number);
+            }
+          })
+          .catch((err) => {
+            console.log({ err });
+          });
+      } catch (error) {
+        console.log(error);
+      }
     }
   }
 
@@ -633,6 +646,59 @@ export class WhatsAppService implements OnModuleInit {
     }
 
     return finalizedMsgs;
+  }
+
+  async contacts(reqData) {
+    const mobile_number = reqData.mobile_number;
+    if (!mobile_number) {
+      raiseParamMissing('mobile_number');
+    }
+    if (mobile_number.length != 12) {
+      raiseBadRequest('Please enter valid mobile number with country code');
+    }
+    let search_str: string = reqData.search_str;
+    if (search_str) {
+      search_str = search_str.trim()?.toLowerCase();
+    }
+
+    const client = await this.getClient(mobile_number);
+    const contacts = await client.getContacts();
+
+    const finalized_list = [];
+    for (let index = 0; index < contacts.length; index++) {
+      try {
+        const contact = contacts[index];
+        if (contact.isMyContact == false) {
+          continue;
+        }
+
+        const verifiedName = contact.verifiedName;
+        const shortName = contact.shortName;
+        const name = contact.name;
+
+        const contact_name = name ?? verifiedName ?? shortName ?? '';
+        const contact_number = contact.number;
+        if (contact_number.length > 12) {
+          continue;
+        }
+        const is_business = contact.isBusiness;
+
+        if (search_str?.length > 0) {
+          if (
+            contact_number.includes(search_str) ||
+            contact_name.toLowerCase().includes(search_str)
+          ) {
+            finalized_list.push({ contact_number, is_business, contact_name });
+          }
+        } else {
+          finalized_list.push({ contact_number, is_business, contact_name });
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    }
+
+    return { count: finalized_list.length, rows: finalized_list };
   }
 
   async setActiveSource(reqData) {

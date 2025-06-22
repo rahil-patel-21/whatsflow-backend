@@ -62,4 +62,9 @@ export class ChatController {
   async funSetActiveSource(@Body() body) {
     return await this.service.setActiveSource(body);
   }
+
+  @Get('contacts')
+  async funContacts(@Query() query) {
+    return await this.service.contacts(query);
+  }
 }

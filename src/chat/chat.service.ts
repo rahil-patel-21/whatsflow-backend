@@ -104,4 +104,8 @@ export class ChatService {
   async setActiveSource(reqData) {
     return await this.waService.setActiveSource(reqData);
   }
+
+  async contacts(reqData) {
+    return await this.waService.contacts(reqData);
+  }
 }
