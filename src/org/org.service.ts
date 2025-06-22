@@ -1,6 +1,6 @@
 // Imports
 import { Injectable } from '@nestjs/common';
-import { raiseParamMissing } from 'src/config/error';
+import { raiseBadRequest, raiseParamMissing } from 'src/config/error';
 import { PgService } from 'src/database/pg/pg.service';
 import { ChannelTable } from 'src/database/pg/entities/channel.entities';
 import { WhatsAppService } from 'src/chat/whatsapp.service';
@@ -61,6 +61,20 @@ export class OrgService {
       data: code_response,
       message: 'Code generated successfully !',
     };
+  }
+
+  async disconnectChannel(reqData) {
+    const mobile_number = reqData.mobile_number;
+    if (!mobile_number) {
+      raiseParamMissing('mobile_number');
+    }
+    if (mobile_number.length != 12) {
+      raiseBadRequest('Please enter valid mobile number with country code');
+    }
+
+    await this.wa.disconnect(mobile_number);
+
+    return { success: true, message: 'Channel is disconnected successfully !' };
   }
 
   private async notifyInitChannel(reqData) {

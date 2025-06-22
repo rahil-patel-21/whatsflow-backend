@@ -698,7 +698,11 @@ export class WhatsAppService implements OnModuleInit {
       }
     }
 
-    return { count: finalized_list.length, rows: finalized_list };
+    return {
+      success: true,
+      count: finalized_list.length,
+      rows: finalized_list,
+    };
   }
 
   async setActiveSource(reqData) {
@@ -710,6 +714,17 @@ export class WhatsAppService implements OnModuleInit {
     console.log({ active_source });
 
     return {};
+  }
+
+  async disconnect(mobile_number) {
+    const client = await this.getClient(mobile_number);
+    await client.destroy();
+    delete wa_handler[mobile_number];
+    await this.pg.update(
+      ChannelTable,
+      { is_active: false },
+      { where: { mobile_number } },
+    );
   }
 
   private getClient(mobile_number: string) {

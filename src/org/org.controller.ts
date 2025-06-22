@@ -15,4 +15,9 @@ export class OrgController {
   async funInitChannel(@Body() body) {
     return await this.service.initChannel(body);
   }
+
+  @Post('disconnectChannel')
+  async funDisconnectChannel(@Body() body) {
+    return await this.service.disconnectChannel(body);
+  }
 }
